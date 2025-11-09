@@ -23,6 +23,12 @@ struct StockView: View {
                 Button("Add stock to favorites") {
                     tickerStore.saveTicker(symbol: symbol, name: name)
                 }
+                if tickerStore.isTickerSaved(symbol: symbol) {
+                    Button("Remove stock from favorites") {
+                        tickerStore.removeTicker(symbol: symbol)
+                    }
+                }
+                
             }
             
             

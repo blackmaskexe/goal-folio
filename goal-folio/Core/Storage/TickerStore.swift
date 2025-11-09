@@ -9,14 +9,15 @@ import SwiftUI
 import Combine
 
 class TickerStore: ObservableObject {
-    @AppStorage("savedTickers") private var tickerData: Data = Data()
+    private static var tickerStoreKey = "savedTickers"
+    
+    @AppStorage(tickerStoreKey) private var tickerData: Data = Data()
     @Published var savedTickers: [Ticker] = []
     
-    init() {
-        savedTickers = (try? JSONDecoder().decode([Ticker].self, from: tickerData)) ?? []
-        
-        // If there are no saved stocks, we'll save these 4 default ones in the user's favorites
-        if savedTickers.isEmpty {
+    init(userDefaults: UserDefaults = .standard) {
+        // if this tickerstore has never been initialized
+        // initialize it with some defualt stock tickers
+        if userDefaults.object(forKey: Self.tickerStoreKey) == nil {
             savedTickers = [
                 Ticker(symbol: "AAPL", name: "Apple Inc."),
                 Ticker(symbol: "GOOGL", name: "Alphabet Inc."),
@@ -25,6 +26,9 @@ class TickerStore: ObservableObject {
             ]
             save()
         }
+        
+        savedTickers = (try? JSONDecoder().decode([Ticker].self, from: tickerData)) ?? []
+                
     }
     
     private func save() {
@@ -38,5 +42,15 @@ class TickerStore: ObservableObject {
     
     func removeTicker(symbol: String) {
         savedTickers.removeAll {$0.symbol.lowercased() == symbol.lowercased()}
+    }
+    
+    func isTickerSaved(symbol: String) -> Bool {
+        for ticker in savedTickers {
+            if ticker.symbol == symbol {
+                return true
+            }
+        }
+        
+        return false
     }
 }
