@@ -8,6 +8,7 @@
 import SwiftUI
 
 //struct StocksChart: View {
+//    let stockData: 
 //    var body: some View {
 //        Chart {
 //            LinePlot(

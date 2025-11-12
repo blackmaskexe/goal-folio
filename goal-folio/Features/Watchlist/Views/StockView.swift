@@ -10,7 +10,7 @@ import SwiftUI
 struct StockView: View {
     let symbol: String
     let name: String
-    private let finnhubService = FinnhubService()
+    private let alphavantageService = AlphaVantageService()
     @EnvironmentObject var tickerStore: TickerStore
         
     
@@ -63,8 +63,12 @@ struct StockView: View {
         .onAppear {
             Task {
                 do {
-                    let stockData = try await finnhubService.fetchStockQuote(symbol: symbol)
-                    print("Current price: ", stockData.c)
+                    let stockData = try await alphavantageService.getRecentOpenDayCandles(symbol: symbol)
+                    for stock in stockData {
+                        print("Date: \(stock.time). Close: \(stock.close)")
+                    }
+                    
+                    
                 } catch {
                     print("Error: ", error.localizedDescription)
                 }
