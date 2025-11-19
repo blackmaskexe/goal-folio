@@ -9,7 +9,7 @@ import SwiftUI
 import Combine
 
 class StockStore: ObservableObject {
-    private static var stocksStoreKey = "savedTickers"
+    private static var stocksStoreKey = "savedStocks"
     
     @AppStorage(stocksStoreKey) private var stockData: Data = Data()
     @Published var savedStocks: [Stock] = []

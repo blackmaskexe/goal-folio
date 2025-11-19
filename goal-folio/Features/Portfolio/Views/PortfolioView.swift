@@ -4,16 +4,48 @@
 //
 //  Created by Pratham S on 11/4/25.
 //
-// (M1.1) Static placeholder screen
+// (M1.1) Static placeholder screen -> now backed by PositionsStore and daily market value series
 
 import SwiftUI
 
 struct PortfolioView: View {
+    @EnvironmentObject var positionsStore: PositionsStore
+
     @State private var selectedRange: TimeRange = .oneD
-    @State private var data: [Double] = TimeRange.oneD.sampleData
-    @State private var currentValue: Double = 12_345.67
-    @State private var changeValue: Double = 123.45
-    @State private var changePercent: Double = 0.98
+
+    // Derived state from store
+    private var series: [TimeSeriesPoint] {
+        // Build a sorted series from dailyMarketValueByDate filtered by selected range
+        let all = positionsStore.dailyMarketValueByDate.compactMap { (key, value) -> TimeSeriesPoint? in
+            guard let date = DateParser.parseDayKey(key) else { return nil }
+            return TimeSeriesPoint(date: date, value: value)
+        }
+        .sorted { $0.date < $1.date }
+
+        let interval = selectedRange.dateIntervalEndingNow()
+        return all.filter { interval.contains($0.date) }
+    }
+
+    private var chartValues: [Double] {
+        // Transform to values normalized like before (min-based), but keep absolute for summary
+        let vals = series.map(\.value)
+        guard let minVal = vals.min() else { return [] }
+        return vals.map { $0 - minVal }
+    }
+
+    private var currentValue: Double {
+        series.last?.value ?? positionsStore.totalMarketValue
+    }
+
+    private var changeValue: Double {
+        guard let first = series.first?.value, let last = series.last?.value else { return 0 }
+        return last - first
+    }
+
+    private var changePercent: Double {
+        guard let first = series.first?.value, first != 0 else { return 0 }
+        return (changeValue / first) * 100
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,21 +55,13 @@ struct PortfolioView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         // Time range selector
                         RangePicker(selected: $selectedRange) {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                data = selectedRange.sampleData
-                                // Update dummy summary numbers based on range to look dynamic
-                                let base = 12_000.0
-                                currentValue = base + (data.last ?? 0)
-                                changeValue = (data.last ?? 0) - (data.first ?? 0)
-                                let first = max(1, data.first ?? 1)
-                                changePercent = (changeValue / first) * 100
-                            }
+                            // No explicit animation of data here; SwiftUI will animate chart area
                         }
 
                         // Lightweight "chart"
-                        LineChart(values: data)
+                        LineChart(values: chartValues)
                             .frame(height: 180)
-                            .animation(.easeInOut, value: data)
+                            .animation(.easeInOut, value: chartValues)
 
                         // Portfolio value
                         VStack(alignment: .leading, spacing: 4) {
@@ -55,10 +79,10 @@ struct PortfolioView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal)
 
-                    // Dummy sections
+                    // Sections driven by positions
                     VStack(spacing: 16) {
-                        HoldingsSection()
-                        TopMoversSection()
+                        HoldingsSection(positions: positionsStore.savedPositions)
+                        // Removed AllocationSection card ("Top Weights")
                     }
                     .padding(.horizontal)
                 }
@@ -68,8 +92,29 @@ struct PortfolioView: View {
             .background(Color(.systemGroupedBackground))
         }
         .onAppear {
-            data = selectedRange.sampleData
+            // Ensure today value is present; PositionsStore already updates on init/CRUD.
+            // If you later fetch live quotes, call a store method to refresh today’s value here.
         }
+    }
+}
+
+// MARK: - Time Series Types and Parser
+
+private struct TimeSeriesPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+}
+
+private enum DateParser {
+    // Parse "yyyy-MM-dd" day keys in UTC into Date at start of day UTC.
+    static func parseDayKey(_ key: String) -> Date? {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone(secondsFromGMT: 0)
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.date(from: key)
     }
 }
 
@@ -78,46 +123,35 @@ struct PortfolioView: View {
 private enum TimeRange: String, CaseIterable, Identifiable {
     case oneD = "1D"
     case fiveD = "5D"
-    case oneW = "1W"
     case oneM = "1M"
+    case sixM = "6M"
     case ytd = "YTD"
     case oneY = "1Y"
 
     var id: String { rawValue }
 
-    // Dummy sample data per range; simple variations for visual interest
-    var sampleData: [Double] {
+    func dateIntervalEndingNow(now: Date = Date()) -> DateInterval {
+        let cal = Calendar(identifier: .gregorian)
         switch self {
         case .oneD:
-            return Self.makeSeries(points: 24, volatility: 20, trend: 5)
+            let start = cal.date(byAdding: .day, value: -1, to: now) ?? now
+            return DateInterval(start: start, end: now)
         case .fiveD:
-            return Self.makeSeries(points: 5 * 24, volatility: 30, trend: 3)
-        case .oneW:
-            return Self.makeSeries(points: 7 * 24, volatility: 35, trend: 2)
+            let start = cal.date(byAdding: .day, value: -5, to: now) ?? now
+            return DateInterval(start: start, end: now)
         case .oneM:
-            return Self.makeSeries(points: 30, volatility: 40, trend: 1.5)
+            let start = cal.date(byAdding: .month, value: -1, to: now) ?? now
+            return DateInterval(start: start, end: now)
+        case .sixM:
+            let start = cal.date(byAdding: .month, value: -6, to: now) ?? now
+            return DateInterval(start: start, end: now)
         case .ytd:
-            return Self.makeSeries(points: 10, volatility: 60, trend: 2.0)
+            let startOfYear = cal.date(from: DateComponents(year: cal.component(.year, from: now), month: 1, day: 1)) ?? now
+            return DateInterval(start: startOfYear, end: now)
         case .oneY:
-            return Self.makeSeries(points: 12, volatility: 80, trend: 2.5)
+            let start = cal.date(byAdding: .year, value: -1, to: now) ?? now
+            return DateInterval(start: start, end: now)
         }
-    }
-
-    private static func makeSeries(points: Int, volatility: Double, trend: Double) -> [Double] {
-        var values: [Double] = []
-        var current = 12_000.0
-        for i in 0..<max(points, 2) {
-            // deterministic pseudo randomness for previews without importing GameplayKit
-            let seed = Double((i * 9301 + 49297) % 233280) / 233280.0
-            let noise = (seed - 0.5) * volatility
-            current += noise + trend
-            values.append(current)
-        }
-        // Normalize around zero for simple line drawing relative to min
-        if let minVal = values.min() {
-            return values.map { $0 - minVal }
-        }
-        return values
     }
 }
 
@@ -145,13 +179,12 @@ private struct RangePicker: View {
                         )
                 }
                 .buttonStyle(.plain)
-                // FIX: ShapeStyle has no member 'accent' -> use .tint or explicit Color
-//                .foregroundStyle(selected == range ? .tint : .secondary)
             }
             Spacer()
         }
     }
 }
+
 // MARK: - Change Pill
 
 private struct ChangePill: View {
@@ -174,88 +207,59 @@ private struct ChangePill: View {
     }
 }
 
-// MARK: - Dummy Sections
+// MARK: - Holdings Section
 
 private struct HoldingsSection: View {
-    struct Holding: Identifiable {
+    let positions: [Position]
+
+    private struct Holding: Identifiable {
         let id = UUID()
-        let symbol: String
+        let symbol: String?
         let name: String
         let shares: Double
         let value: Double
-        let changePercent: Double
     }
 
-    private let holdings: [Holding] = [
-        .init(symbol: "AAPL", name: "Apple", shares: 12.5, value: 2_450, changePercent: 0.8),
-        .init(symbol: "MSFT", name: "Microsoft", shares: 8.0, value: 2_180, changePercent: -0.4),
-        .init(symbol: "VOO", name: "S&P 500 ETF", shares: 15.0, value: 6_120, changePercent: 0.2),
-        .init(symbol: "TSLA", name: "Tesla", shares: 3.0, value: 690, changePercent: 2.3),
-    ]
+    private var holdings: [Holding] {
+        positions.map { p in
+            Holding(symbol: p.symbol,
+                    name: p.name,
+                    shares: p.quantity,
+                    value: p.marketValue)
+        }
+        .sorted { $0.value > $1.value }
+    }
 
     var body: some View {
         SectionCard(title: "Holdings") {
-            ForEach(holdings) { h in
-                HStack {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text(h.symbol).font(.headline)
-                            Text(h.name).font(.subheadline).foregroundStyle(.secondary)
+            if holdings.isEmpty {
+                Text("No positions yet.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(holdings) { h in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text(h.symbol ?? "—").font(.headline)
+                                Text(h.name).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Text("\(h.shares, specifier: "%.4f") units")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        Text("\(h.shares, specifier: "%.2f") shares")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text(h.value.formatted(.currency(code: "USD")))
+                                .font(.headline)
+                        }
                     }
-                    Spacer()
-                    VStack(alignment: .trailing) {
-                        Text(h.value.formatted(.currency(code: "USD")))
-                            .font(.headline)
-                        Text("\(h.changePercent >= 0 ? "+" : "")\(h.changePercent, specifier: "%.2f")%")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(h.changePercent >= 0 ? .green : .red)
-                    }
-                }
-                .padding(.vertical, 8)
-                Divider().opacity(0.15)
-            }
-        }
-    }
-}
-
-private struct TopMoversSection: View {
-    struct Mover: Identifiable {
-        let id = UUID()
-        let symbol: String
-        let changePercent: Double
-    }
-
-    private let movers: [Mover] = [
-        .init(symbol: "TSLA", changePercent: 3.4),
-        .init(symbol: "NVDA", changePercent: 2.9),
-        .init(symbol: "AMZN", changePercent: -1.8),
-        .init(symbol: "AAPL", changePercent: 1.2),
-    ]
-
-    var body: some View {
-        SectionCard(title: "Top Movers") {
-            HStack(spacing: 12) {
-                ForEach(movers) { m in
-                    VStack(spacing: 6) {
-                        Text(m.symbol)
-                            .font(.subheadline.weight(.semibold))
-                        Text("\(m.changePercent >= 0 ? "+" : "")\(m.changePercent, specifier: "%.2f")%")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(m.changePercent >= 0 ? .green : .red)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.vertical, 8)
+                    Divider().opacity(0.15)
                 }
             }
         }
     }
 }
-
 
 // MARK: - Shared Section Card
 
@@ -271,19 +275,6 @@ private struct SectionCard<Content: View>: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct CircleArc: Shape {
-    let startAngle: Angle
-    let endAngle: Angle
-
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2
-        p.addArc(center: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        return p
     }
 }
 

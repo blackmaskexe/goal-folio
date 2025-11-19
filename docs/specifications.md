@@ -1,5 +1,5 @@
 
-# Milestone 1: Core iOS/Swift fundamentals (no networking, no persistence)
+# Milestone 1: Core iOS/Swift fundamentals (no networking, no persistence) ✅
 1. Build a simple SwiftUI app shell
 • Features: Tab bar with two tabs: “Portfolio” and “Watchlist”.
 • Learn: Xcode basics, Swift language fundamentals, SwiftUI Views, @State, View composition, navigation.
@@ -15,13 +15,13 @@
 • Learn: AppStorage, Codable + UserDefaults, or lightweight persistence via SwiftData (if you’re on iOS 17+).
 • Goal: Data survives app restarts.
 
-# Milestone 2: Networking and basic async programming
+# Milestone 2: Networking and basic async programming ✅
 4. Fetch current prices for tickers from a public API
 • Features: Pull latest prices for the watchlist.
 • Learn: URLSession, Swift Concurrency (async/await), decoding JSON (Codable), error handling, refresh UI.
 • Goal: Show live prices and simple price change.
 
-5. Background refresh / manual refresh
+5. Background refresh / manual refresh 
 • Features: Pull-to-refresh or a refresh button.
 • Learn: Task, .refreshable in SwiftUI, cancellation, retry strategies.
 • Goal: Cleanly update prices on demand.

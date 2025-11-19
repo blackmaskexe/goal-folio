@@ -11,6 +11,16 @@ import SwiftUI
 struct MainTabView: View {
     @StateObject private var stockStore = StockStore()
     @StateObject private var loadingManager = LoadingManager()
+    @StateObject private var positionsStore = PositionsStore()
+
+//    init() {
+//        #if DEBUG
+//        if let bundleID = Bundle.main.bundleIdentifier {
+//            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+//            UserDefaults.standard.synchronize()
+//        }
+//        #endif
+//    }
     
     var body: some View {
         ZStack {
@@ -19,42 +29,34 @@ struct MainTabView: View {
                     NavigationStack {
                         WatchlistView()
                     }
-                    
                 }
                 
                 Tab("Portfolio", systemImage: "person") {
                     NavigationStack {
                         PortfolioView()
                     }
-                    
                 }
             }
             .environmentObject(stockStore)
             .environmentObject(loadingManager)
+            .environmentObject(positionsStore)
             
-            // Loading Overlay Logic
             if loadingManager.isLoading {
                 ZStack {
-                    // Dimmed background only behind the loader
                     VStack(spacing: 12) {
                         ProgressView()
                             .scaleEffect(1.5)
-                            .tint(.accentColor) // App accent color
-                        // Optional: Add text or spacing if desired
+                            .tint(.accentColor)
                     }
                     .padding(32)
-                    .background(
-                        Color.black.opacity(0.15) // Or use .thinMaterial for a glassy look
-                    )
+                    .background(Color.black.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    // Remove ignoresSafeArea so only the ProgressView has overlay
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.clear) // No global dimming
+                .background(Color.clear)
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.2), value: loadingManager.isLoading)
             }
-            
         }
     }
 }

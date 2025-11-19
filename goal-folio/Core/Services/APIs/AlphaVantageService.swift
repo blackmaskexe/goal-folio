@@ -16,7 +16,7 @@ struct StockCandle: Identifiable {
 
 class AlphaVantageService {
     private let baseURL = "https://www.alphavantage.co/query"
-    private let apiKey = "H57SGIIXB3QA5MXA"
+    private let apiKey = "UEQVE0JGLAZ0W8Y3"
     
     func fetchIntradayPrices(symbol: String) async throws -> [StockCandle] {
         let apiKey = "H57SGIIXB3QA5MXA"
