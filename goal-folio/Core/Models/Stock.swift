@@ -16,3 +16,13 @@ struct Stock: Identifiable, Hashable, Codable {
     var currency: String? = nil
     
 }
+
+struct StockCandle: Identifiable, Codable {
+    let id = UUID()
+    let time: String      // ISO 8601 timestamp
+    let open: Double
+    let high: Double
+    let low: Double
+    let close: Double
+    let volume: Int
+}

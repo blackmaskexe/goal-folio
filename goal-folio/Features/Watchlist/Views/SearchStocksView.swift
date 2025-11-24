@@ -59,7 +59,7 @@ struct SearchStocksView: View {
                 if showSuggestions {
                     SuggestionsList(stocks: StaticStockData.all)
                 } else {
-                    ResultsList(stocks: results)
+                    ResultsList(stocks: results, isLoading: loadingManager.isLoading, query: query)
                 }
             }
         }
@@ -134,12 +134,23 @@ private struct SuggestionsList: View {
 
 private struct ResultsList: View {
     let stocks: [Stock]
+    let isLoading: Bool
+    let query: String
 
     var body: some View {
         List {
-            if stocks.isEmpty {
-                Text("No results")
-                    .foregroundStyle(.secondary)
+            if isLoading {
+                HStack {
+                    ProgressView()
+                    Text("Searching…")
+                        .foregroundStyle(.secondary)
+                }
+            } else if stocks.isEmpty {
+                // Only show "No results" when not loading and the user has typed something
+                if !query.isEmpty {
+                    Text("No results")
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 ForEach(stocks, id: \.self) { stock in
                     NavigationLink {

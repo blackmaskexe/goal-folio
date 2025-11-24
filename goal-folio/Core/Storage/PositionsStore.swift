@@ -95,61 +95,131 @@ class PositionsStore: ObservableObject {
 
     // MARK: - CRUD Functions
 
-    func add(_ position: Position) {
+    // Internal add used by seed
+    private func add(_ position: Position) {
         savedPositions.append(position)
         savePositions()
         updateTodayMarketValue()
     }
 
+    // Upsert helpers: find existing active position by matching key
+    private func indexForCash(currency: String) -> Int? {
+        savedPositions.firstIndex {
+            $0.category == .cash && $0.currency.uppercased() == currency.uppercased()
+        }
+    }
+
+    private func indexForEquity(symbol: String, currency: String) -> Int? {
+        let sym = symbol.uppercased()
+        return savedPositions.firstIndex {
+            $0.category == .equities &&
+            ($0.symbol?.uppercased() == sym) &&
+            $0.currency.uppercased() == currency.uppercased()
+        }
+    }
+
+    private func indexForDigital(symbol: String, currency: String) -> Int? {
+        let sym = symbol.uppercased()
+        return savedPositions.firstIndex {
+            $0.category == .digitalAssets &&
+            ($0.symbol?.uppercased() == sym) &&
+            $0.currency.uppercased() == currency.uppercased()
+        }
+    }
+
+    private func indexForOther(name: String, currency: String) -> Int? {
+        let keyName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return savedPositions.firstIndex {
+            $0.category == .other &&
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == keyName &&
+            $0.currency.uppercased() == currency.uppercased()
+        }
+    }
+
+    private func upsert(at index: Int?, with newPosition: Position, deltaQuantity: Double) {
+        if let idx = index {
+            var existing = savedPositions[idx]
+            existing.quantity += deltaQuantity
+            // Keep unitPrice as last provided price for now (could be refined to VWAP/average cost if desired)
+            existing.unitPrice = newPosition.unitPrice != 0 ? newPosition.unitPrice : existing.unitPrice
+            if existing.quantity == 0 {
+                savedPositions.remove(at: idx)
+            } else if existing.quantity < 0 {
+                // Prevent negative holdings; clamp to zero and remove
+                savedPositions.remove(at: idx)
+            } else {
+                savedPositions[idx] = existing
+            }
+        } else {
+            // No existing position: only add if delta is positive
+            guard deltaQuantity > 0 else {
+                // Ignore pure withdrawals when nothing exists
+                savePositions()
+                updateTodayMarketValue()
+                return
+            }
+            var toAdd = newPosition
+            toAdd.quantity = deltaQuantity
+            savedPositions.append(toAdd)
+        }
+        savePositions()
+        updateTodayMarketValue()
+    }
+
     func addCash(amount: Double, currency: String = "USD", name: String = "Cash") {
+        // amount can be positive (deposit) or negative (withdrawal)
+        let idx = indexForCash(currency: currency)
         let p = Position(
             category: .cash,
             symbol: nil,
             name: name,
-            quantity: amount,
+            quantity: 0, // delta applied in upsert
             unitPrice: 1.0,
             currency: currency
         )
-        add(p)
+        upsert(at: idx, with: p, deltaQuantity: amount)
     }
 
     func addEquity(symbol: String, name: String, shares: Double, unitPrice: Double, currency: String = "USD", notes: String? = nil) {
+        let idx = indexForEquity(symbol: symbol, currency: currency)
         let p = Position(
             category: .equities,
             symbol: symbol.uppercased(),
             name: name,
-            quantity: shares,
+            quantity: 0,
             unitPrice: unitPrice,
             currency: currency,
             notes: notes
         )
-        add(p)
+        upsert(at: idx, with: p, deltaQuantity: shares)
     }
 
     func addDigitalAsset(symbol: String, name: String, units: Double, unitPrice: Double, currency: String = "USD", notes: String? = nil) {
+        let idx = indexForDigital(symbol: symbol, currency: currency)
         let p = Position(
             category: .digitalAssets,
             symbol: symbol.uppercased(),
             name: name,
-            quantity: units,
+            quantity: 0,
             unitPrice: unitPrice,
             currency: currency,
             notes: notes
         )
-        add(p)
+        upsert(at: idx, with: p, deltaQuantity: units)
     }
 
     func addOther(name: String, amount: Double, unitPrice: Double = 1.0, currency: String = "USD", notes: String? = nil) {
+        let idx = indexForOther(name: name, currency: currency)
         let p = Position(
             category: .other,
             symbol: nil,
             name: name,
-            quantity: amount,
+            quantity: 0,
             unitPrice: unitPrice,
             currency: currency,
             notes: notes
         )
-        add(p)
+        upsert(at: idx, with: p, deltaQuantity: amount)
     }
 
     func update(_ position: Position) {
@@ -186,6 +256,31 @@ class PositionsStore: ObservableObject {
         savedPositions.reduce(0) { $0 + $1.marketValue }
     }
 
+    // A merged list for display: all cash combined into a single "Cash" row per currency (default: one row if only USD).
+    var displayPositions: [Position] {
+        // 1) Merge cash by currency into a single row per currency, named "Cash"
+        let cashByCurrency = Dictionary(grouping: cashPositions, by: { $0.currency.uppercased() })
+            .map { (currency, items) -> Position in
+                let totalQty = items.reduce(0.0) { $0 + $1.quantity }
+                // If total becomes zero, omit the row
+                return Position(
+                    category: .cash,
+                    symbol: nil,
+                    name: "Cash",
+                    quantity: totalQty,
+                    unitPrice: 1.0,
+                    currency: currency
+                )
+            }
+            .filter { $0.quantity != 0 }
+
+        // 2) Non-cash positions as-is (but filter out zeroed positions just in case)
+        let nonCash = savedPositions.filter { $0.category != .cash && $0.quantity != 0 }
+
+        // 3) Return combined list
+        return nonCash + cashByCurrency
+    }
+
     // MARK: - Seed
 
     private static func defaultSeedPositions() -> [Position] {
@@ -201,3 +296,4 @@ class PositionsStore: ObservableObject {
         ]
     }
 }
+

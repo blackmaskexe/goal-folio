@@ -11,7 +11,6 @@ struct StockView: View {
     let symbol: String
     let name: String
     
-    private let alphavantageService = AlphaVantageService()
     @EnvironmentObject var stockStore: StockStore
     @EnvironmentObject var loadingManager: LoadingManager
     
@@ -47,7 +46,8 @@ struct StockView: View {
                 Task {
                     do {
                         loadingManager.show()
-                        stockCandles = try await alphavantageService.getRecentOpenDayCandles(symbol: symbol)
+                        // Use the shared instance (instance method)
+                        stockCandles = try await StockFirebaseService.shared.getRecentOpenDayCandles(symbol: symbol)
                         loadingManager.hide()
                     } catch {
                         print("Error: ", error.localizedDescription)
@@ -61,3 +61,4 @@ struct StockView: View {
         }
     }
 }
+

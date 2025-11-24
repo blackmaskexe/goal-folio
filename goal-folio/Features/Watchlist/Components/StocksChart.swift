@@ -14,6 +14,36 @@ struct StocksChart: View {
     // iOS 17+ simple selection on X axis (Date)
     @State private var selectedDate: Date?
 
+    // Date parsing cache to avoid re-parsing repeatedly
+    private var candleDates: [Date?] {
+        let iso = ISO8601DateFormatter()
+        return stockCandles.map { iso.date(from: $0.time) }
+    }
+
+    // iOS Charts expects Date on x-axis for best selection behavior.
+    // We'll feed the string time, but for nearest we parse to Date.
+    private func nearest(to date: Date) -> StockCandle? {
+        guard !stockCandles.isEmpty else { return nil }
+        let pairs = zip(stockCandles, candleDates).compactMap { (candle, d) -> (StockCandle, Date)? in
+            guard let d = d else { return nil }
+            return (candle, d)
+        }
+        guard !pairs.isEmpty else { return nil }
+
+        // Find the candle with minimal absolute time distance to the given date
+        var best: (StockCandle, Date) = pairs[0]
+        var bestDelta = abs(best.1.timeIntervalSince1970 - date.timeIntervalSince1970)
+
+        for pair in pairs.dropFirst() {
+            let delta = abs(pair.1.timeIntervalSince1970 - date.timeIntervalSince1970)
+            if delta < bestDelta {
+                best = pair
+                bestDelta = delta
+            }
+        }
+        return best.0
+    }
+
     // Basic derived values
     private var openPrice: Double? { stockCandles.first?.close }
     private var latest: StockCandle? { stockCandles.last }
@@ -117,13 +147,5 @@ struct StocksChart: View {
             }
         }
     }
-
-    // MARK: - Helpers
-
-    private func nearest(to date: Date) -> StockCandle? {
-        guard !stockCandles.isEmpty else { return nil }
-        return stockCandles.min { a, b in
-            abs(a.time.timeIntervalSince(date)) < abs(b.time.timeIntervalSince(date))
-        }
-    }
 }
+

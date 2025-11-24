@@ -82,7 +82,8 @@ struct PortfolioView: View {
 
                     // Sections driven by positions
                     VStack(spacing: 16) {
-                        HoldingsSection(positions: positionsStore.savedPositions)
+                        // Use merged displayPositions so Cash appears as a single "Cash" row
+                        HoldingsSection(positions: positionsStore.displayPositions)
                         // Removed AllocationSection card ("Top Weights")
                     }
                     .padding(.horizontal)
@@ -300,3 +301,4 @@ private struct SectionCard<Content: View>: View {
 #Preview {
     MainTabView()
 }
+

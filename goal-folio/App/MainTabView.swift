@@ -25,15 +25,15 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView {
-                Tab("Watchlist", systemImage: "star") {
-                    NavigationStack {
-                        WatchlistView()
-                    }
-                }
-                
                 Tab("Portfolio", systemImage: "person") {
                     NavigationStack {
                         PortfolioView()
+                    }
+                }
+                
+                Tab("Watchlist", systemImage: "star") {
+                    NavigationStack {
+                        WatchlistView()
                     }
                 }
             }
