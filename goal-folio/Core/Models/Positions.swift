@@ -70,3 +70,27 @@ struct Position: Identifiable, Hashable, Codable {
     // Convenience computed values
     var marketValue: Double { quantity * unitPrice }
 }
+
+struct IntradaySnapshot: Codable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let netWorth: Double
+    
+    init(id: UUID = UUID(), timestamp: Date = Date(), netWorth: Double) {
+        self.id = id
+        self.timestamp = timestamp
+        self.netWorth = netWorth
+    }
+}
+
+struct NetWorthData: Codable {
+    var dailySnapshots: [String: Double]        // "yyyy-MM-dd" -> end-of-day net worth
+    var todayIntraday: [IntradaySnapshot]       // Timestamped entries for current day only
+    var intradayDate: String?                   // Track which day the intraday data belongs to
+    
+    init(dailySnapshots: [String: Double] = [:], todayIntraday: [IntradaySnapshot] = [], intradayDate: String? = nil) {
+        self.dailySnapshots = dailySnapshots
+        self.todayIntraday = todayIntraday
+        self.intradayDate = intradayDate
+    }
+}
