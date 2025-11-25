@@ -21,8 +21,8 @@ class PositionsStore: ObservableObject {
 
     init(userDefaults: UserDefaults = .standard) {
         // Load persisted data
-        if let loaded = try? JSONDecoder().decode([Position].self, from: positionsData) {
-            savedPositions = loaded
+        if let loadedPositions = try? JSONDecoder().decode([Position].self, from: positionsData) {
+            savedPositions = loadedPositions
         }
 
         // Load net worth data (if present)
@@ -116,6 +116,7 @@ class PositionsStore: ObservableObject {
             }
         } else if deltaQuantity > 0 {
             // Only add new position if delta is positive
+            // because we can't add a negative of something that isn't in the system
             savedPositions.append(Position(
                 category: category,
                 symbol: symbol?.uppercased(),
@@ -148,6 +149,7 @@ class PositionsStore: ObservableObject {
     }
 
     func update(_ position: Position) {
+        // directly update a position:
         guard let idx = savedPositions.firstIndex(where: { $0.id == position.id }) else { return }
         savedPositions[idx] = position
         savePositions()
