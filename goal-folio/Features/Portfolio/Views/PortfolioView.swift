@@ -16,15 +16,23 @@ struct PortfolioView: View {
 
     // Derived state from store
     private var series: [TimeSeriesPoint] {
-        // Build a sorted series from dailyMarketValueByDate filtered by selected range
-        let all = positionsStore.dailyMarketValueByDate.compactMap { (key, value) -> TimeSeriesPoint? in
-            guard let date = DateParser.parseDayKey(key) else { return nil }
-            return TimeSeriesPoint(date: date, value: value)
-        }
-        .sorted { $0.date < $1.date }
+        // For 1D view, use intraday data; otherwise use daily snapshots
+        if selectedRange == .oneD {
+            return positionsStore.netWorthData.todayIntraday.map { snapshot in
+                TimeSeriesPoint(date: snapshot.timestamp, value: snapshot.netWorth)
+            }
+            .sorted { $0.date < $1.date }
+        } else {
+            // Build a sorted series from daily snapshots filtered by selected range
+            let all = positionsStore.netWorthData.dailySnapshots.compactMap { (key, value) -> TimeSeriesPoint? in
+                guard let date = DateParser.parseDayKey(key) else { return nil }
+                return TimeSeriesPoint(date: date, value: value)
+            }
+            .sorted { $0.date < $1.date }
 
-        let interval = selectedRange.dateIntervalEndingNow()
-        return all.filter { interval.contains($0.date) }
+            let interval = selectedRange.dateIntervalEndingNow()
+            return all.filter { interval.contains($0.date) }
+        }
     }
 
     private var chartValues: [Double] {
