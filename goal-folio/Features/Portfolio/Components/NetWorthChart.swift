@@ -85,7 +85,7 @@ struct NetWorthChart: View {
     // Get daily snapshots for the last N days
     private func getDailyData(days: Int) -> [ChartDataPoint] {
         let calendar = Calendar.current
-        let today = Date()
+        let today = getDate()
         
         // Calculate date range
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: today) else {
@@ -108,7 +108,7 @@ struct NetWorthChart: View {
     // Get year-to-date data with sampling
     private func getYearToDateData(maxPoints: Int) -> [ChartDataPoint] {
         let calendar = Calendar.current
-        let today = Date()
+        let today = getDate()
         
         // Get January 1st of current year
         let year = calendar.component(.year, from: today)
@@ -133,7 +133,7 @@ struct NetWorthChart: View {
     // Get all available data with sampling
     private func getAllData(maxPoints: Int) -> [ChartDataPoint] {
         let dataPoints = positionsStore.netWorthData.dailySnapshots.map { (dateString, value) in
-            let date = parseDateKey(dateString) ?? Date()
+            let date = parseDateKey(dateString) ?? getDate()
             return ChartDataPoint(date: date, value: value)
         }
         .sorted { $0.date < $1.date }
@@ -144,7 +144,7 @@ struct NetWorthChart: View {
     // Get sampled data for a specific date range
     private func getSampledData(days: Int, maxPoints: Int) -> [ChartDataPoint] {
         let calendar = Calendar.current
-        let today = Date()
+        let today = getDate()
         
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: today) else {
             return []
@@ -249,7 +249,7 @@ private struct ChartView: View {
         guard range == .oneDay, !data.isEmpty else { return data }
         
         let calendar = Calendar.current
-        let now = Date()
+        let now = getDate()
         
         // Get start of day (midnight) and end of day
         guard let startOfDay = calendar.startOfDay(for: now) as Date?,

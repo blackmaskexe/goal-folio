@@ -54,7 +54,7 @@ struct Position: Identifiable, Hashable, Codable {
         unitPrice: Double,
         currency: String = "USD",
         notes: String? = nil,
-        dateAdded: Date = Date()
+        dateAdded: Date = getDate()
     ) {
         self.id = id
         self.category = category
@@ -76,7 +76,7 @@ struct IntradaySnapshot: Codable, Identifiable {
     let timestamp: Date
     let netWorth: Double
     
-    init(id: UUID = UUID(), timestamp: Date = Date(), netWorth: Double) {
+    init(id: UUID = UUID(), timestamp: Date = getDate(), netWorth: Double) {
         self.id = id
         self.timestamp = timestamp
         self.netWorth = netWorth

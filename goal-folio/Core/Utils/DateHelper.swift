@@ -14,7 +14,7 @@ struct DateHelper {
                                    timeZone: TimeZone = TimeZone(secondsFromGMT: 0)!,
                                    locale: Locale = Locale(identifier: "en_US_POSIX")) -> String {
         let calendar = Calendar(identifier: .gregorian)
-        let baseDate = date ?? Date()
+        let baseDate = date ?? getDate()
         let dayStart = calendar.startOfDay(for: baseDate)
 
         let formatter = DateFormatter()
@@ -24,4 +24,8 @@ struct DateHelper {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: dayStart)
     }
+}
+
+func getDate () {
+    return Date()
 }

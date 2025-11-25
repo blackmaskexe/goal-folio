@@ -65,11 +65,11 @@ class PositionsStore: ObservableObject {
         guard netWorthData.todayIntraday.isEmpty else { return }
         
         // Get yesterday's closing value or use current value if no history
-        let yesterday = DateHelper.getFormattedDate(for: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
+        let yesterday = DateHelper.getFormattedDate(for: Calendar.current.date(byAdding: .day, value: -1, to: getDate()) ?? getDate())
         let openingValue = netWorthData.dailySnapshots[yesterday] ?? totalMarketValue
         
         // Add opening snapshot at start of day
-        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let startOfDay = Calendar.current.startOfDay(for: getDate())
         netWorthData.todayIntraday.append(IntradaySnapshot(timestamp: startOfDay, netWorth: openingValue))
         netWorthData.intradayDate = DateHelper.getFormattedDate()
         saveNetWorthData()
@@ -81,7 +81,7 @@ class PositionsStore: ObservableObject {
         
         // Update both daily and intraday snapshots
         netWorthData.dailySnapshots[today] = currentValue
-        netWorthData.todayIntraday.append(IntradaySnapshot(timestamp: Date(), netWorth: currentValue))
+        netWorthData.todayIntraday.append(IntradaySnapshot(timestamp: getDate(), netWorth: currentValue))
         
         saveNetWorthData()
     }
