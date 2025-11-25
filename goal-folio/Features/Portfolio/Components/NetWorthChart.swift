@@ -244,6 +244,29 @@ private struct ChartView: View {
     
     private var isUp: Bool { change >= 0 }
     
+    // For 1D view, create extended data with padding to end of day
+    private var chartData: [ChartDataPoint] {
+        guard range == .oneDay, !data.isEmpty else { return data }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Get start of day (midnight) and end of day
+        guard let startOfDay = calendar.startOfDay(for: now) as Date?,
+              let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            return data
+        }
+        
+        // If we have data, extend to end of day with the last value
+        var extendedData = data
+        if let lastPoint = data.last {
+            // Add a point at end of day with the same value as the last point
+            extendedData.append(ChartDataPoint(date: endOfDay, value: lastPoint.value))
+        }
+        
+        return extendedData
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Current value and change
@@ -263,28 +286,31 @@ private struct ChartView: View {
             }
             
             // The actual chart
-            Chart(data) { point in
-                LineMark(
-                    x: .value("Date", point.date),
-                    y: .value("Value", point.value)
-                )
-                .foregroundStyle(isUp ? Color.green : Color.red)
-                .lineStyle(.init(lineWidth: 2))
-                
-                AreaMark(
-                    x: .value("Date", point.date),
-                    y: .value("Value", point.value)
-                )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            (isUp ? Color.green : Color.red).opacity(0.3),
-                            (isUp ? Color.green : Color.red).opacity(0.0)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+            Chart(chartData) { point in
+                // Only draw line/area for actual data points (not the extended end point)
+                if range != .oneDay || point.id != chartData.last?.id {
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("Value", point.value)
                     )
-                )
+                    .foregroundStyle(isUp ? Color.green : Color.red)
+                    .lineStyle(.init(lineWidth: 2))
+                    
+                    AreaMark(
+                        x: .value("Date", point.date),
+                        y: .value("Value", point.value)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                (isUp ? Color.green : Color.red).opacity(0.3),
+                                (isUp ? Color.green : Color.red).opacity(0.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
             }
             .chartYAxis {
                 AxisMarks(position: .trailing)
