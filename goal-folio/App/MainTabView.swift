@@ -13,6 +13,7 @@ struct MainTabView: View {
     @StateObject private var loadingManager = LoadingManager()
     @StateObject private var positionsStore = PositionsStore()
 
+// Clearing out persist storage:
 //    init() {
 //        #if DEBUG
 //        if let bundleID = Bundle.main.bundleIdentifier {

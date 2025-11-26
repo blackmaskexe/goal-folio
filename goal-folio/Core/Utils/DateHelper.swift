@@ -10,22 +10,20 @@ import Foundation
 struct DateHelper {
     // return a formatted date string (yyyy-mm-dd)
     // all of them are optional parameters
-    static func getFormattedDate(for date: Date? = nil,
-                                   timeZone: TimeZone = TimeZone(secondsFromGMT: 0)!,
-                                   locale: Locale = Locale(identifier: "en_US_POSIX")) -> String {
-        let calendar = Calendar(identifier: .gregorian)
-        let baseDate = date ?? getDate()
-        let dayStart = calendar.startOfDay(for: baseDate)
-
+    static func getFormattedDate(for date: Date? = nil) -> String {
         let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = locale
-        formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: dayStart)
+        return formatter.string(from: date ?? getDate())
     }
-}
-
-func getDate () {
-    return Date()
+    
+    static func getDateFromFormattedDate(_ dateString: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: dateString)
+    }
+    
+    static func getDate() -> Date {
+            return Date()
+//        return Calendar.current.date(byAdding: .day, value: 49, to: Date()) ?? Date()
+    }
 }

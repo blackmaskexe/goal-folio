@@ -15,7 +15,6 @@ enum TimeRange: String, CaseIterable, Identifiable {
     case fiveDays = "5D"
     case oneMonth = "1M"
     case sixMonths = "6M"
-    case yearToDate = "YTD"
     case oneYear = "1Y"
     case max = "Max"
     
@@ -63,8 +62,6 @@ struct NetWorthChart: View {
             return getDailyData(days: 30)
         case .sixMonths:
             return getSampledData(days: 180, maxPoints: 30)
-        case .yearToDate:
-            return getYearToDateData(maxPoints: 30)
         case .oneYear:
             return getDailyData(days: 365)
         case .max:
@@ -85,7 +82,7 @@ struct NetWorthChart: View {
     // Get daily snapshots for the last N days
     private func getDailyData(days: Int) -> [ChartDataPoint] {
         let calendar = Calendar.current
-        let today = getDate()
+        let today = DateHelper.getDate()
         
         // Calculate date range
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: today) else {
@@ -96,47 +93,45 @@ struct NetWorthChart: View {
         var dataPoints: [ChartDataPoint] = []
         
         for (dateString, value) in positionsStore.netWorthData.dailySnapshots {
-            if let date = parseDateKey(dateString),
+            if let date = DateHelper.getDateFromFormattedDate(dateString),
                date >= startDate && date <= today {
                 dataPoints.append(ChartDataPoint(date: date, value: value))
             }
         }
         
-        return dataPoints.sorted { $0.date < $1.date }
-    }
-    
-    // Get year-to-date data with sampling
-    private func getYearToDateData(maxPoints: Int) -> [ChartDataPoint] {
-        let calendar = Calendar.current
-        let today = getDate()
-        
-        // Get January 1st of current year
-        let year = calendar.component(.year, from: today)
-        guard let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) else {
-            return []
-        }
-        
-        // Get all daily snapshots from start of year
-        var dataPoints: [ChartDataPoint] = []
-        
-        for (dateString, value) in positionsStore.netWorthData.dailySnapshots {
-            if let date = parseDateKey(dateString),
-               date >= startOfYear && date <= today {
-                dataPoints.append(ChartDataPoint(date: date, value: value))
+        if dataPoints.isEmpty {
+            // if it is still empty
+            // because the user hasn't had any changes in positions
+            // in the past days number of days
+            
+            // 1. We get the most recent previous entry done by the user from today:
+            guard let mostRecentEntryDateString = positionsStore.netWorthData.dailySnapshots.keys.sorted().last else {
+                return []
             }
+
+            let mostRecentEntryNetWorth = positionsStore.netWorthData.dailySnapshots[mostRecentEntryDateString]!
+            
+            var initialChartDataPoint = ChartDataPoint(date: DateHelper.getDateFromFormattedDate(mostRecentEntryDateString)!, value: mostRecentEntryNetWorth)
+            
+            // 2. And an entry for today:
+            var latestChartDataPoint = ChartDataPoint(date: DateHelper.getDate(),
+                                                      value: positionsStore.totalMarketValue)
+            
+            // 3. So that we can have atleast two points in our graph:
+            dataPoints.append(initialChartDataPoint)
+            dataPoints.append(latestChartDataPoint)
         }
         
-        let sorted = dataPoints.sorted { $0.date < $1.date }
-        return sampleData(sorted, maxPoints: maxPoints)
+        return dataPoints.sorted { $0.date < $1.date }
     }
     
     // Get all available data with sampling
     private func getAllData(maxPoints: Int) -> [ChartDataPoint] {
         let dataPoints = positionsStore.netWorthData.dailySnapshots.map { (dateString, value) in
-            let date = parseDateKey(dateString) ?? getDate()
+            let date = DateHelper.getDateFromFormattedDate(dateString) ?? DateHelper.getDate()
             return ChartDataPoint(date: date, value: value)
         }
-        .sorted { $0.date < $1.date }
+            .sorted { $0.date < $1.date }
         
         return sampleData(dataPoints, maxPoints: maxPoints)
     }
@@ -144,7 +139,7 @@ struct NetWorthChart: View {
     // Get sampled data for a specific date range
     private func getSampledData(days: Int, maxPoints: Int) -> [ChartDataPoint] {
         let calendar = Calendar.current
-        let today = getDate()
+        let today = DateHelper.getDate()
         
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: today) else {
             return []
@@ -153,7 +148,7 @@ struct NetWorthChart: View {
         var dataPoints: [ChartDataPoint] = []
         
         for (dateString, value) in positionsStore.netWorthData.dailySnapshots {
-            if let date = parseDateKey(dateString),
+            if let date = DateHelper.getDateFromFormattedDate(dateString),
                date >= startDate && date <= today {
                 dataPoints.append(ChartDataPoint(date: date, value: value))
             }
@@ -164,15 +159,6 @@ struct NetWorthChart: View {
     }
     
     // MARK: - Helper Functions
-    
-    // Parse date key "yyyy-MM-dd" into Date
-    private func parseDateKey(_ key: String) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter.date(from: key)
-    }
     
     // Sample data to reduce to maxPoints by taking evenly spaced points
     private func sampleData(_ data: [ChartDataPoint], maxPoints: Int) -> [ChartDataPoint] {
@@ -249,7 +235,7 @@ private struct ChartView: View {
         guard range == .oneDay, !data.isEmpty else { return data }
         
         let calendar = Calendar.current
-        let now = getDate()
+        let now = DateHelper.getDate()
         
         // Get start of day (midnight) and end of day
         guard let startOfDay = calendar.startOfDay(for: now) as Date?,
