@@ -10,31 +10,53 @@ import SwiftUI
 struct PositionsHistory: View {
     @EnvironmentObject var positionsStore: PositionsStore
     
+    @State private var isExpanded: Bool = true
+    
     private var sortedHistory: [PositionsHistoryEntry] {
         positionsStore.positionsHistory.sorted { $0.timestamp > $1.timestamp }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Transaction History")
-                .font(.headline)
+            Button {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Transaction History")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                }
+            }
+            .buttonStyle(.plain)
             
-            if sortedHistory.isEmpty {
-                EmptyHistoryView()
-            } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(sortedHistory) { entry in
-                            HistoryRow(entry: entry)
-                            
-                            if entry.id != sortedHistory.last?.id {
-                                Divider()
-                                    .padding(.leading, 56)
+            if isExpanded {
+                if sortedHistory.isEmpty {
+                    EmptyHistoryView()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(sortedHistory) { entry in
+                                HistoryRow(entry: entry)
+                                
+                                if entry.id != sortedHistory.last?.id {
+                                    Divider()
+                                        .padding(.leading, 56)
+                                }
                             }
                         }
                     }
+                    .frame(maxHeight: 400)
                 }
-                .frame(maxHeight: 400)
             }
         }
         .padding()

@@ -9,6 +9,8 @@ import SwiftUI
 
 struct HoldingsDisplay: View {
     let positions: [Position]
+    
+    @State private var isExpanded: Bool = true
 
     private struct Holding: Identifiable {
         let id = UUID()
@@ -29,7 +31,7 @@ struct HoldingsDisplay: View {
     }
 
     var body: some View {
-        HoldingCard(title: "Holdings") {
+        HoldingCard(title: "Holdings", isExpanded: $isExpanded) {
             
             if holdings.isEmpty {
                 HStack {
@@ -66,13 +68,35 @@ struct HoldingsDisplay: View {
 
 private struct HoldingCard<Content: View>: View {
     let title: String
+    @Binding var isExpanded: Bool
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-            content
+            Button {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                }
+            }
+            .buttonStyle(.plain)
+            
+            if isExpanded {
+                content
+            }
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))

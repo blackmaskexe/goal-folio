@@ -26,7 +26,7 @@
 • Learn: Task, .refreshable in SwiftUI, cancellation, retry strategies.
 • Goal: Cleanly update prices on demand.
 
-# Milestone 3: Portfolio modeling (manual first)
+# Milestone 3: Portfolio modeling (manual first) ✅
 6. Manual portfolio tracking
 • Features: Add positions (ticker, shares, cost basis), compute total value.
 • Learn: Derived state, computed properties, basic math/formatting, number/date formatting, currency.
