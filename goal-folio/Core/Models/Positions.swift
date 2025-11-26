@@ -95,7 +95,7 @@ struct NetWorthData: Codable {
     }
 }
 
-struct PositionsHistoryEntry: Codable {
+struct PositionsHistoryEntry: Codable, Identifiable {
     let id: UUID
     let timestamp: Date
     let delta: Double

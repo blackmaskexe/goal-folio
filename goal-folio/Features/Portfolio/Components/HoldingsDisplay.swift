@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct HoldingsSection: View {
+struct HoldingsDisplay: View {
     let positions: [Position]
 
     private struct Holding: Identifiable {

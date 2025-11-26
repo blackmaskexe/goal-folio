@@ -21,10 +21,12 @@ struct PortfolioView: View {
                     // Sections driven by positions
                     VStack(spacing: 16) {
                         // Use merged displayPositions so Cash appears as a single "Cash" row
-                        HoldingsSection(positions: positionsStore.displayPositions)
+                        HoldingsDisplay(positions: positionsStore.displayPositions)
                         // Removed AllocationSection card ("Top Weights")
                     }
                     .padding(.horizontal)
+                    
+                    PositionsHistory()
                 }
                 .padding(.vertical, 12)
             }
