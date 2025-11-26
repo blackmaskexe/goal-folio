@@ -56,6 +56,16 @@ class PositionsStore: ObservableObject {
     private func saveNetWorthData() {
         netWorthValuesData = (try? JSONEncoder().encode(netWorthData)) ?? Data()
     }
+    
+    private func savePositionsHistory() {
+        positionsHistoryData = (try? JSONEncoder().encode(positionsHistory)) ?? Data()
+    }
+    
+    private func addHistoryEntry(delta: Double, name: String) {
+        let entry = PositionsHistoryEntry(timestamp: DateHelper.getDate(), delta: delta, name: name)
+        positionsHistory.append(entry)
+        savePositionsHistory()
+    }
 
     private func checkAndRolloverIntradayData() {
         let today = DateHelper.getFormattedDate()
@@ -109,6 +119,9 @@ class PositionsStore: ObservableObject {
             index = savedPositions.firstIndex { $0.category == .other && $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == keyName && $0.currency.uppercased() == currency.uppercased() }
         }
         
+        // Calculate the monetary delta for history
+        let monetaryDelta = deltaQuantity * unitPrice
+        
         // Update existing or add new position
         if let idx = index {
             var existing = savedPositions[idx]
@@ -118,8 +131,13 @@ class PositionsStore: ObservableObject {
             // Remove if quantity reaches zero or becomes negative
             if existing.quantity <= 0 {
                 savedPositions.remove(at: idx)
+                // Record removal in history as negative delta
+                let removalDelta = -(existing.quantity - deltaQuantity) * existing.unitPrice
+                addHistoryEntry(delta: removalDelta, name: "Removed: \(name)")
             } else {
                 savedPositions[idx] = existing
+                // Record update in history
+                addHistoryEntry(delta: monetaryDelta, name: name)
             }
         } else if deltaQuantity > 0 {
             // Only add new position if delta is positive
@@ -133,6 +151,8 @@ class PositionsStore: ObservableObject {
                 currency: currency,
                 notes: notes
             ))
+            // Record addition in history
+            addHistoryEntry(delta: monetaryDelta, name: "Added: \(name)")
         }
         
         savePositions()
@@ -158,18 +178,45 @@ class PositionsStore: ObservableObject {
     func update(_ position: Position) {
         // directly update a position:
         guard let idx = savedPositions.firstIndex(where: { $0.id == position.id }) else { return }
+        let oldPosition = savedPositions[idx]
+        
+        // Calculate the change in market value
+        let oldValue = oldPosition.marketValue
+        let newValue = position.marketValue
+        let delta = newValue - oldValue
+        
         savedPositions[idx] = position
+        
+        // Record update in history if value changed
+        if delta != 0 {
+            addHistoryEntry(delta: delta, name: "Updated: \(position.name)")
+        }
+        
         savePositions()
         updateNetWorthSnapshots()
     }
 
     func remove(id: UUID) {
+        // Find the position before removing to record in history
+        if let position = savedPositions.first(where: { $0.id == id }) {
+            let delta = -position.marketValue
+            addHistoryEntry(delta: delta, name: "Removed: \(position.name)")
+        }
+        
         savedPositions.removeAll { $0.id == id }
         savePositions()
         updateNetWorthSnapshots()
     }
 
     func removeAll(in category: PositionCategory) {
+        // Record removal of all positions in this category
+        let positionsToRemove = savedPositions.filter { $0.category == category }
+        let totalValue = positionsToRemove.reduce(0) { $0 + $1.marketValue }
+        
+        if totalValue > 0 {
+            addHistoryEntry(delta: -totalValue, name: "Removed all: \(category.displayName)")
+        }
+        
         savedPositions.removeAll { $0.category == category }
         savePositions()
         updateNetWorthSnapshots()
