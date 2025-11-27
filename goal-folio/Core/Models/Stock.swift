@@ -7,8 +7,7 @@
 
 import Foundation
 
-struct Stock: Identifiable, Hashable, Codable {
-    let id = UUID()
+struct Stock: Hashable, Codable {
     let symbol: String
     let name: String
     var type: String? = nil
@@ -17,8 +16,7 @@ struct Stock: Identifiable, Hashable, Codable {
     
 }
 
-struct StockCandle: Identifiable, Codable {
-    let id = UUID()
+struct StockCandle: Codable, Hashable{
     let time: String      // ISO 8601 timestamp
     let open: Double
     let high: Double

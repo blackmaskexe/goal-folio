@@ -109,12 +109,14 @@ struct NetWorthChart: View {
                 return []
             }
 
-            let mostRecentEntryNetWorth = positionsStore.netWorthData.dailySnapshots[mostRecentEntryDateString]!
+            guard let mostRecentEntryNetWorth = positionsStore.netWorthData.dailySnapshots[mostRecentEntryDateString] else {
+                return []
+            }
             
-            var initialChartDataPoint = ChartDataPoint(date: DateHelper.getDateFromFormattedDate(mostRecentEntryDateString)!, value: mostRecentEntryNetWorth)
+            let initialChartDataPoint = ChartDataPoint(date: DateHelper.getDateFromFormattedDate(mostRecentEntryDateString)!, value: mostRecentEntryNetWorth)
             
             // 2. And an entry for today:
-            var latestChartDataPoint = ChartDataPoint(date: DateHelper.getDate(),
+            let latestChartDataPoint = ChartDataPoint(date: DateHelper.getDate(),
                                                       value: positionsStore.totalMarketValue)
             
             // 3. So that we can have atleast two points in our graph:

@@ -101,7 +101,7 @@ struct StocksChart: View {
             // Simple line + shaded area; minimal selection circle while dragging
             Chart {
                 // Area fill (color depends on up/down vs open)
-                ForEach(stockCandles, id: \.id) { candle in
+                ForEach(stockCandles, id: \.self) { candle in
                     AreaMark(
                         x: .value("Time", candle.time),
                         y: .value("Close", candle.close)
@@ -111,7 +111,7 @@ struct StocksChart: View {
                 }
 
                 // Line
-                ForEach(stockCandles, id: \.id) { candle in
+                ForEach(stockCandles, id: \.self) { candle in
                     LineMark(
                         x: .value("Time", candle.time),
                         y: .value("Close", candle.close)

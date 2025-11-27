@@ -42,10 +42,10 @@ struct PortfolioView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            // Present AddPositionsView as a modal sheet
+            // Present AddPositionView as a modal sheet
             .sheet(isPresented: $showingAddPosition) {
                 NavigationStack {
-                    AddPositionsView()
+                    AddPositionView()
                         .environmentObject(positionsStore)
                         .navigationBarTitleDisplayMode(.inline)
                 }

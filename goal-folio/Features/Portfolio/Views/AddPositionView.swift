@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct AddPositionsView: View {
+struct AddPositionView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var positionsStore: PositionsStore
 
@@ -280,7 +280,7 @@ private extension String {
 
 #Preview {
     NavigationStack {
-        AddPositionsView()
+        AddPositionView()
             .environmentObject(PositionsStore())
     }
 }
