@@ -132,7 +132,7 @@ class PositionsStore: ObservableObject {
             if existing.quantity <= 0 {
                 savedPositions.remove(at: idx)
                 // Record removal in history as negative delta
-                let removalDelta = -(existing.quantity - deltaQuantity) * existing.unitPrice
+                let removalDelta = -existing.quantity * existing.unitPrice
                 addHistoryEntry(delta: removalDelta, name: "Removed: \(name)")
             } else {
                 savedPositions[idx] = existing
