@@ -17,10 +17,10 @@ enum PositionCategory: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .cash: return "Cash Assets"
-        case .equities: return "Equities / Stocks"
-        case .digitalAssets: return "Digital Assets"
-        case .other: return "Other Positions"
+        case .cash: return "Cash"
+        case .equities: return "Equities"
+        case .digitalAssets: return "Digital"
+        case .other: return "Other"
         }
     }
 }
@@ -54,7 +54,7 @@ struct Position: Identifiable, Hashable, Codable {
         unitPrice: Double,
         currency: String = "USD",
         notes: String? = nil,
-        dateAdded: Date = Date()
+        dateAdded: Date = DateHelper.getDate()
     ) {
         self.id = id
         self.category = category
@@ -69,4 +69,42 @@ struct Position: Identifiable, Hashable, Codable {
 
     // Convenience computed values
     var marketValue: Double { quantity * unitPrice }
+}
+
+struct IntradaySnapshot: Codable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let netWorth: Double
+    
+    init(id: UUID = UUID(), timestamp: Date = DateHelper.getDate(), netWorth: Double) {
+        self.id = id
+        self.timestamp = timestamp
+        self.netWorth = netWorth
+    }
+}
+
+struct NetWorthData: Codable {
+    var dailySnapshots: [String: Double]        // "yyyy-MM-dd" -> end-of-day net worth
+    var todayIntraday: [IntradaySnapshot]       // Timestamped entries for current day only
+    var intradayDate: String?                   // Track which day the intraday data belongs to
+    
+    init(dailySnapshots: [String: Double] = [:], todayIntraday: [IntradaySnapshot] = [], intradayDate: String? = nil) {
+        self.dailySnapshots = dailySnapshots
+        self.todayIntraday = todayIntraday
+        self.intradayDate = intradayDate
+    }
+}
+
+struct PositionsHistoryEntry: Codable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let delta: Double
+    let name: String
+    
+    init(id: UUID = UUID(), timestamp: Date = DateHelper.getDate(), delta: Double, name: String) {
+        self.id = id
+        self.timestamp = timestamp
+        self.delta = delta
+        self.name = name
+    }
 }

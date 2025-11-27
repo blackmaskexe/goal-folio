@@ -13,6 +13,7 @@ struct MainTabView: View {
     @StateObject private var loadingManager = LoadingManager()
     @StateObject private var positionsStore = PositionsStore()
 
+// Clearing out persist storage:
 //    init() {
 //        #if DEBUG
 //        if let bundleID = Bundle.main.bundleIdentifier {
@@ -25,15 +26,15 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView {
-                Tab("Watchlist", systemImage: "star") {
-                    NavigationStack {
-                        WatchlistView()
-                    }
-                }
-                
                 Tab("Portfolio", systemImage: "person") {
                     NavigationStack {
                         PortfolioView()
+                    }
+                }
+                
+                Tab("Watchlist", systemImage: "star") {
+                    NavigationStack {
+                        WatchlistView()
                     }
                 }
             }

@@ -12,44 +12,16 @@ import FirebaseFunctions
 /// Service for fetching stock data through Firebase Cloud Functions
 /// Replaces direct Alpha Vantage API calls with cached, rate-limited backend calls
 class StockFirebaseService {
-    
-    // MARK: - Properties
-    
-    /// Firebase Functions instance
     private let functions = Functions.functions()
-    
-    /// Shared singleton instance
     static let shared = StockFirebaseService()
     
-    // MARK: - Initialization
-    
+    // Initialization:
     private init() {
         // Optional: Configure for specific region if needed
         // functions = Functions.functions(region: "us-central1")
     }
     
-    // MARK: - Models
-    
-    /// Stock search result
-
-    
-    /// Stock candle (OHLCV) data point
-    struct StockCandle: Codable {
-        let time: String // ISO 8601 timestamp
-        let open: Double
-        let high: Double
-        let low: Double
-        let close: Double
-        let volume: Int
-        
-        /// Converts ISO timestamp to Date
-        var date: Date? {
-            let formatter = ISO8601DateFormatter()
-            return formatter.date(from: time)
-        }
-    }
-    
-    /// Search response from Firebase
+    // Models:
     struct SearchResponse: Codable {
         let success: Bool
         let query: String
@@ -59,7 +31,6 @@ class StockFirebaseService {
         let apiError: String?
     }
     
-    /// Stock details response
     struct StockDetailsResponse: Codable {
         let success: Bool
         let result: StockDetails?
@@ -75,32 +46,18 @@ class StockFirebaseService {
         let lastUpdated: String
     }
     
-    /// Intraday prices response
     struct IntradayPricesResponse: Codable {
-        let success: Bool
         let symbol: String
         let interval: String
-        let outputSize: String
-        let adjusted: Bool
-        let extendedHours: Bool
-        let month: String?
-        let count: Int
-        let prices: [StockCandle]
-        let error: String?
+        let candles: [StockCandle]
     }
     
-    /// Recent open day response
     struct RecentOpenDayResponse: Codable {
-        let success: Bool
         let symbol: String
         let interval: String
         let tradingDay: String?
-        let count: Int
         let candles: [StockCandle]
-        let error: String?
     }
-    
-    // MARK: - Errors
     
     enum FirebaseServiceError: LocalizedError {
         case invalidResponse
@@ -119,7 +76,24 @@ class StockFirebaseService {
         }
     }
     
-    // MARK: - Search Functions
+    enum PriceServiceError: LocalizedError {
+        case invalidResponse
+        case decodingFailed
+        case emptySymbol
+        
+        var errorDescription: String? {
+            switch self {
+            case .invalidResponse:
+                return "Invalid response from server"
+            case .decodingFailed:
+                return "Failed to decode response data"
+            case .emptySymbol:
+                return "Stock symbol cannot be empty"
+            }
+        }
+    }
+    
+    // SEARCH FUNCTIONS:
     
     /// Search for stocks by symbol or name
     /// - Parameters:
@@ -182,17 +156,17 @@ class StockFirebaseService {
         return stockDetails
     }
     
-    // MARK: - Price Functions
+    // PRICE FUNCTIONS:
     
     /// Fetch intraday prices for a stock
     /// - Parameters:
     ///   - symbol: Stock symbol (e.g., "AAPL")
-    ///   - interval: Time interval (default: "15min")
-    ///   - outputSize: "compact" (latest 100 data points) or "full" (trailing 30 days) (default: "compact")
-    ///   - adjusted: Split/dividend-adjusted data (default: true)
-    ///   - extendedHours: Include pre/post-market hours (default: false)
-    ///   - month: Specific month in YYYY-MM format (optional, e.g., "2024-11")
-    /// - Returns: Array of stock candles sorted by time
+    ///   - interval: Time interval (default: "15min"). Options: "1min", "5min", "15min", "30min", "60min"
+    ///   - outputSize: "compact" (last 100 data points) or "full" (default: "compact")
+    ///   - adjusted: Whether to adjust for splits/dividends (default: true)
+    ///   - extendedHours: Include extended trading hours (default: false)
+    ///   - month: Specific month in YYYY-MM format (optional)
+    /// - Returns: Array of stock candles with OHLCV data
     func fetchIntradayPrices(
         symbol: String,
         interval: String = "15min",
@@ -201,99 +175,61 @@ class StockFirebaseService {
         extendedHours: Bool = false,
         month: String? = nil
     ) async throws -> [StockCandle] {
-        // Use direct HTTP call since this endpoint uses query parameters
-        let baseURL = "https://getintradayprices-flsqckpzha-uc.a.run.app"
+        guard !symbol.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw PriceServiceError.emptySymbol
+        }
         
-        var components = URLComponents(string: baseURL)!
-        components.queryItems = [
-            URLQueryItem(name: "symbol", value: symbol.uppercased()),
-            URLQueryItem(name: "interval", value: interval),
-            URLQueryItem(name: "outputSize", value: outputSize),
-            URLQueryItem(name: "adjusted", value: String(adjusted)),
-            URLQueryItem(name: "extendedHours", value: String(extendedHours))
+        var data: [String: Any] = [
+            "symbol": symbol.uppercased(),
+            "interval": interval,
+            "outputSize": outputSize,
+            "adjusted": adjusted,
+            "extendedHours": extendedHours
         ]
         
         if let month = month {
-            components.queryItems?.append(URLQueryItem(name: "month", value: month))
+            data["month"] = month
         }
         
-        guard let url = components.url else {
-            throw FirebaseServiceError.invalidResponse
+        let result = try await functions.httpsCallable("getIntradayPrices").call(data)
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: result.data) else {
+            throw PriceServiceError.invalidResponse
         }
         
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let response = try JSONDecoder().decode(IntradayPricesResponse.self, from: data)
-        
-        if !response.success {
-            throw FirebaseServiceError.serverError(response.error ?? "Unknown error")
-        }
-        
-        return response.prices
-    }
-    
-    /// Get candles for the most recent open trading day
-    /// - Parameters:
-    ///   - symbol: Stock symbol (e.g., "AAPL")
-    ///   - interval: Time interval (default: "15min")
-    /// - Returns: Array of candles for the most recent trading day
-    func getRecentOpenDayCandles(
-        symbol: String,
-        interval: String = "15min"
-    ) async throws -> [StockCandle] {
-        // Use direct HTTP call since this endpoint uses query parameters
-        let baseURL = "https://getrecentopenday-flsqckpzha-uc.a.run.app"
-        
-        var components = URLComponents(string: baseURL)!
-        components.queryItems = [
-            URLQueryItem(name: "symbol", value: symbol.uppercased()),
-            URLQueryItem(name: "interval", value: interval)
-        ]
-        
-        guard let url = components.url else {
-            throw FirebaseServiceError.invalidResponse
-        }
-        
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let response = try JSONDecoder().decode(RecentOpenDayResponse.self, from: data)
-        
-        if !response.success {
-            throw FirebaseServiceError.serverError(response.error ?? "Unknown error")
+        guard let response = try? JSONDecoder().decode(IntradayPricesResponse.self, from: jsonData) else {
+            throw PriceServiceError.decodingFailed
         }
         
         return response.candles
     }
     
-    // MARK: - Convenience Functions
-    
-    /// Get available time intervals for intraday prices
-    static let availableIntervals = ["1min", "5min", "15min", "30min", "60min"]
-    
-    /// Validate time interval
-    static func isValidInterval(_ interval: String) -> Bool {
-        return availableIntervals.contains(interval)
-    }
-    
-    /// Get the latest price from candles
-    /// - Parameter candles: Array of stock candles
-    /// - Returns: The most recent close price, or nil if empty
-    static func getLatestPrice(from candles: [StockCandle]) -> Double? {
-        return candles.last?.close
-    }
-    
-    /// Calculate price change from candles
-    /// - Parameter candles: Array of stock candles (must be sorted by time)
-    /// - Returns: Tuple of (priceChange, percentChange) or nil if insufficient data
-    static func getPriceChange(from candles: [StockCandle]) -> (change: Double, percentChange: Double)? {
-        guard let first = candles.first,
-              let last = candles.last,
-              first.close > 0 else {
-            return nil
+    /// Get candles for the most recent open trading day
+    /// - Parameters:
+    ///   - symbol: Stock symbol (e.g., "AAPL")
+    /// - Returns: Array of candles for the most recent trading day
+    func getRecentOpenDayCandles(
+        symbol: String,
+    ) async throws -> [StockCandle] {
+        guard !symbol.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw PriceServiceError.emptySymbol
         }
         
-        let change = last.close - first.close
-        let percentChange = (change / first.close) * 100.0
+        let data: [String: Any] = [
+            "symbol": symbol.uppercased(),
+        ]
         
-        return (change, percentChange)
+        let result = try await functions.httpsCallable("getRecentOpenDay").call(data)
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: result.data) else {
+            throw PriceServiceError.invalidResponse
+        }
+        
+        guard let response = try? JSONDecoder().decode(RecentOpenDayResponse.self, from: jsonData) else {
+            throw PriceServiceError.decodingFailed
+        }
+        
+        return response.candles
     }
 }
 
@@ -379,3 +315,4 @@ class StockFirebaseService {
  }
  
  */
+
